@@ -1,0 +1,77 @@
+---
+- name: Bootstrap PostgreSQL primary
+  hosts: primary
+  become: yes
+  vars_prompt:
+    - name: "shared_buffers"
+      prompt: "Enter the value for shared_buffers (e.g., 4GB, 256MB)"
+      private: no
+    - name: "max_conns"
+      prompt: "Enter the value for max_connections (eg 100, 200 etc)"
+      private: no
+
+  vars:
+    remote_path: "/opt/docker-compose.yml"
+
+  tasks:
+    - name: Print the inventory hostname
+      debug:
+        msg: "The current host is {{ inventory_hostname }}"
+
+    - name: install docker compose
+      shell: |
+        sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose version
+
+    - name: upload files to primary
+      copy:
+        src: "./primary/"
+        dest: "/opt/"
+        owner: root
+        group: root
+        mode: '0755'
+    - name: replace values with inputs
+      shell: |
+        sed -i "s|DEVOPS_MAX_CONNECTIONS|{{ max_conns }}|g" "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_SHARED_BUFF|{{ shared_buffers }}|g"  "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_IMAGE_TAG|{{ postgres_sql_version }}|g"  "/opt/docker-compose.yml"
+
+    - name: docker compose run
+      shell: |
+        docker-compose -f {{ remote_path }} up -d
+
+- name: Bootstrap PostgreSQL secondary
+  hosts: replicas
+  become: yes
+  vars:
+    remote_path: "/opt/docker-compose.yml"
+
+  tasks:
+    - name: Print the inventory hostname
+      debug:
+        msg: "The current host is {{ inventory_hostname }}"
+
+    - name: install docker compose
+      shell: |
+        sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose version
+
+    - name: upload files to primary
+      copy:
+        src: "./secondary/"
+        dest: "/opt/"
+        owner: root
+        group: root
+        mode: '0755'
+    - name: replace values
+      shell: |
+        sed -i "s|DEVOPS_IMAGE_TAG|{{ postgres_sql_version }}|g"  "/opt/docker-compose.yml"
+        sed -i "s|DEVOPS_PRIMARY_IP|{{ primary_private_ip }}|g"  "/opt/docker-compose.yml"
+
+    - name: docker compose run
+      shell: |
+        docker-compose -f {{ remote_path }} up -d
+      
+    

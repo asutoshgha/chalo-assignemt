@@ -1,0 +1,16 @@
+docker run -d -p 5000:5000 -e AWS_ACCESS_KEY_ID= -e AWS_SECRET_ACCESS_KEY= -e AWS_DEFAULT_REGION="us-east-1" flask-app
+
+curl -X POST http://localhost:5000/generate \
+-H "Content-Type: application/json" \
+-d '{
+  "instance_type": "t3.large",
+  "num_replicas": 2
+}'
+
+curl -X POST http://localhost:5000/apply
+
+curl -X POST http://localhost:5000/apply_ansible_configuration \
+-H "Content-Type: application/json" \
+-d '{
+  "image_tag": "postgres:14-alpine"
+}'
